@@ -42,7 +42,9 @@ app.use(session({
 }));
 
 app.use(require("response-time")(function (req, res, time) {
-    console.log("%dms - []%s] %s", time|0, req.originalUrl, req.method);
+    if (time > 300) {
+        console.log("%dms - [%s] %s", time|0, req.method, req.originalUrl);
+    }
 }));
 
 app.use(flash());
