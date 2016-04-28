@@ -10,6 +10,7 @@ const Promise = require('bluebird');
 const exec = require('child_process').exec;
 const crypto = require('crypto');
 const memcacheStore = require('connect-memcached')(session);
+const co = require("co");
 
 const app = express();
 const upload = multer({});
