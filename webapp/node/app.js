@@ -319,57 +319,51 @@ app.get('/', (req, res) => {
   });
 });
 
-app.get('/@:accountName/', (req, res) => {
-  db.query('SELECT * FROM `users` WHERE `account_name` = ? AND `del_flg` = 0', req.params.accountName).then((users) => {
-    global.console.time('getAccountName');
-    let user = users[0];
-    if (!user) {
-      res.status(404).send('not_found');
-      return Promise.reject();
-    }
-    global.console.timeEnd('getAccountName');
-    return user;
-  }).then((user) => {
-    return db.query('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC', user.id).then((posts) => makePosts(posts))
-    .then((posts) => {
-      return {user, posts};
-    });
-  }).then((context) => {
-    return db.query('SELECT COUNT(*) AS count FROM `comments` WHERE `user_id` = ?', context.user.id).then((commentCount) => {
-      context.commentCount = commentCount[0] ? commentCount[0].count : 0;
-      return context;
-    });
-  }).then((context) => {
-    return db.query('SELECT `id` FROM `posts` WHERE `user_id` = ?', context.user.id).then((postIdRows) => {
-      return postIdRows.map((row) => row.id);
-    }).then((postIds) => {
-      context.postCount = postIds.length;
-      if (context.postCount === 0 ) {
-        context.commentedCount = 0;
-        return context;
-      } else {
-        return db.query('SELECT COUNT(*) AS count FROM `comments` WHERE `post_id` IN (?)', [postIds]).then((commentedCount) => {
-          context.commentedCount = commentedCount[0] ? commentedCount[0].count : 0;
-          return context;
+app.get('/@:accountName/', (req, res, next) => {
+    co(function* () {
+        const users = db.query('SELECT * FROM users WHERE `account_name` = ? AND `del_flg` = 0', req.params.accountName);
+
+        global.console.time('getAccountName');
+
+        const user = users[0];
+
+        if (!user) {
+            res.status(404).send('not_found');
+            return Promise.reject();
+        }
+
+        global.console.timeEnd('getAccountName');
+
+        const posts = makePosts(yield db.query('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC', user.id));
+
+        const context = {user, post};
+        const commentCount = yield db.query('SELECT COUNT(*) AS count FROM `comments` WHERE `user_id` = ?', context.user.id);
+        context.commentCount = commentCount[0] ? commentCount[0].count : 0;
+        const postIdRows = yield db.query('SELECT `id` FROM `posts` WHERE `user_id` = ?', context.user.id);
+        const postIds = postIdRows.map((row) => row.id);
+        context.postCount = postIds.length;
+
+        if (context.postCount === 0 ) {
+            context.commentedCount = 0;
+        } else {
+            const commentedCount = yield db.query('SELECT COUNT(*) AS count FROM `comments` WHERE `post_id` IN (?)', [postIds]);
+            context.commentedCount = commentedCount[0] ? commentedCount[0].count : 0;
+        }
+
+        context.me = yield getSessionUser(req);
+
+        res.render('user.ejs', {
+            me: context.me,
+            user: context.user,
+            posts: filterPosts(context.posts),
+            post_count: context.postCount,
+            comment_count: context.commentCount,
+            commented_count: context.commentedCount,
+            imageUrl: imageUrl
         });
-      }
-    });
-  }).then((context) => {
-    return getSessionUser(req).then((me) => {
-      context.me = me;
-      return context;
-    });
-  }).then((context) => {
-    res.render('user.ejs', {
-      me: context.me,
-      user: context.user,
-      posts: filterPosts(context.posts),
-      post_count: context.postCount,
-      comment_count: context.commentCount,
-      commented_count: context.commentedCount,
-      imageUrl: imageUrl
-    });
-  }).catch((error) => {
+        next();
+  })
+  .then(() => next(), (error) => {
     if (error) {
       res.status(500).send('ERROR');
       throw error;
