@@ -40,6 +40,11 @@ app.use(session({
   })
 }));
 
+app.use(function (req, res, next) {
+    console.log(req.originalUrl, req.method);
+    next();
+});
+
 app.use(flash());
 
 function getSessionUser(req) {
@@ -89,6 +94,7 @@ function calculatePasshash(accountName, password) {
 
 function tryLogin(accountName, password) {
   return new Promise((resolve, reject) => {
+    // del_flgいる！？
     db.query('SELECT * FROM users WHERE account_name = ? AND del_flg = 0', accountName).then((users) => {
       let user = users[0];
       if (!user) {
@@ -120,6 +126,7 @@ function dbInitialize() {
     sqls.push('DELETE FROM users WHERE id > 1000');
     sqls.push('DELETE FROM posts WHERE id > 10000');
     sqls.push('DELETE FROM comments WHERE id > 100000');
+    // ！？
     sqls.push('UPDATE users SET del_flg = 0');
 
     Promise.all(sqls.map((sql) => db.query(sql))).then(() => {
@@ -134,15 +141,15 @@ function imageUrl(post) {
   let ext = ""
 
   switch(post.mime) {
-  case "image/jpeg":
-    ext = ".jpg";
-    break;
-  case "image/png":
-    ext = ".png";
-    break;
-  case "image/gif":
-    ext = ".gif";
-    break;
+    case "image/jpeg":
+      ext = ".jpg";
+      break;
+    case "image/png":
+      ext = ".png";
+      break;
+    case "image/gif":
+      ext = ".gif";
+      break;
   }
 
   return `/image/${post.id}${ext}`;
@@ -298,10 +305,12 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/', (req, res) => {
+  console.time('GET: /');
   getSessionUser(req).then((me) => {
     db.query('SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` ORDER BY `created_at` DESC').then((posts) => {
       return makePosts(posts.slice(0, POSTS_PER_PAGE * 2));
     }).then((posts) => {
+      console.timeEnd('GET: /');
       res.render('index.ejs', { posts: filterPosts(posts), me: me, imageUrl: imageUrl});
     });
   }).catch((error) => {
@@ -312,11 +321,13 @@ app.get('/', (req, res) => {
 
 app.get('/@:accountName/', (req, res) => {
   db.query('SELECT * FROM `users` WHERE `account_name` = ? AND `del_flg` = 0', req.params.accountName).then((users) => {
+    global.console.time('getAccountName');
     let user = users[0];
     if (!user) {
       res.status(404).send('not_found');
       return Promise.reject();
     }
+    global.console.timeEnd('getAccountName');
     return user;
   }).then((user) => {
     return db.query('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC', user.id).then((posts) => makePosts(posts))
@@ -526,4 +537,3 @@ app.post('/admin/banned', (req, res) => {
 app.use(express.static('../public', {}));
 
 app.listen(8080);
-
