@@ -316,12 +316,10 @@ app.get('/logout', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  console.time('GET: /');
   getSessionUser(req).then((me) => {
     db.query('SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` ORDER BY `created_at` DESC').then((posts) => {
       return makePosts(posts.slice(0, POSTS_PER_PAGE * 2));
     }).then((posts) => {
-      console.timeEnd('GET: /');
       res.render('index.ejs', { posts: filterPosts(posts), me: me, imageUrl: imageUrl});
     });
   }).catch((error) => {
@@ -334,7 +332,6 @@ app.get('/@:accountName/', (req, res, next) => {
     co(function* () {
         const users = yield db.query('SELECT * FROM users WHERE `account_name` = ? AND `del_flg` = 0', req.params.accountName);
 
-        global.console.time('getAccountName');
 
         const user = users[0];
 
@@ -343,7 +340,6 @@ app.get('/@:accountName/', (req, res, next) => {
             return Promise.reject();
         }
 
-        global.console.timeEnd('getAccountName');
 
         const posts = yield makePosts(yield db.query('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC', user.id));
 
