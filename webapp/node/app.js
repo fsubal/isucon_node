@@ -321,7 +321,7 @@ app.get('/', (req, res) => {
 
 app.get('/@:accountName/', (req, res, next) => {
     co(function* () {
-        const users = db.query('SELECT * FROM users WHERE `account_name` = ? AND `del_flg` = 0', req.params.accountName);
+        const users = yield db.query('SELECT * FROM users WHERE `account_name` = ? AND `del_flg` = 0', req.params.accountName);
 
         global.console.time('getAccountName');
 
