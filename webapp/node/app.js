@@ -445,23 +445,30 @@ app.post('/', upload.single('file'), (req, res) => {
   });
 });
 
-app.get('/image/:id.:ext', (req, res) => {
-  db.query('SELECT * FROM `posts` WHERE `id` = ?', req.params.id).then((posts) => {
-    let post = posts[0];
-    if (!post) {
-      res.status(404).send('image not found');
-      return;
-    }
-    if ((req.params.ext === 'jpg' && post.mime === 'image/jpeg') ||
-        (req.params.ext === 'png' && post.mime === 'image/png') ||
-        (req.params.ext === 'gif' && post.mime === 'image/gif')) {
-      res.append('Content-Type', post.mime);
-      res.send(post.imgdata);
-    }
-  }).catch((error) => {
-    console.log(error);
-    res.status(500).send(error);
-  }) ;
+app.get('/image/:id.:ext', (req, res, next) => {
+    co(function* () {
+        const posts = yield db.query('SELECT * FROM `posts` WHERE `id` = ?', req.params.id);
+        const post = posts[0];
+
+        if (!post) {
+            res.status(404).send('image not found');
+            return next();
+        }
+
+        if ((req.params.ext === 'jpg' && post.mime === 'image/jpeg') ||
+            (req.params.ext === 'png' && post.mime === 'image/png') ||
+            (req.params.ext === 'gif' && post.mime === 'image/gif')) {
+
+            res.append('Content-Type', post.mime);
+            res.send(post.imgdata);
+        }
+
+        next();
+    })
+    .then(() => next(), (error) => {
+        console.log(error);
+        res.status(500).send(error);
+    });
 });
 
 app.post('/comment', (req, res) => {
