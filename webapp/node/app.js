@@ -167,28 +167,36 @@ function makeComment(comment) {
 }
 
 function makePost(post, options) {
-  return new Promise((resolve, reject) => {
-    db.query('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', [post.id]).then((commentCount) => {
-      post.comment_count = commentCount.count || 0;
-      var query = 'SELECT * FROM `comments` WHERE `post_id` = ? ORDER BY `created_at` DESC';
-      if (!options.allComments) {
-        query += ' LIMIT 3';
-      }
-      return db.query(query, [post.id]).then((comments) => {
-        return Promise.all(comments.map((comment) => {
-          return makeComment(comment);
-        })).then((comments) => {
-          post.comments = comments;
-          return post;
-        });
-      }).then((post) => {
-        return getUser(post.user_id).then((user) => {
-          post.user = user;
-          return post;
-        });
-      }).then(resolve, reject);
-    }).catch(reject);
-  });
+    // new Promise((resolve, reject) => {
+    return co(function* () {
+        post.comment_count = yield db.query('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', [post.id]) || 0;
+
+        var query = `
+            SELECT
+                comments.id,
+                comments.post_id,
+                users.account_name,
+                comments.comment,
+                comments.created_at
+            FROM comments
+            LEFT JOIN users ON comments.user_id = users.id
+            WHERE post_id = 1
+            ORDER BY comments.created_at DESC;
+        `;
+
+        if (!options.allComments) {
+          query += ' LIMIT 3';
+        }
+
+        post.comments = (yield db.query(query, [post.id])).map(comment => {
+            comment.user = {account_name: comment.account_name};
+        })
+
+        // const raw_comments = yield db.query(query, [post.id]);
+        // post.comments = yield Promise.all(comments.map(comment => makeComment(comment)));
+        post.user = yield getUser(post.user_id);
+
+    });
 }
 
 function filterPosts(posts) {
