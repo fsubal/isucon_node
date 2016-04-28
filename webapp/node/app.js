@@ -315,17 +315,21 @@ app.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
-app.get('/', (req, res) => {
-  getSessionUser(req).then((me) => {
-    db.query('SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` ORDER BY `created_at` DESC').then((posts) => {
-      return makePosts(posts.slice(0, POSTS_PER_PAGE * 2));
-    }).then((posts) => {
-      res.render('index.ejs', { posts: filterPosts(posts), me: me, imageUrl: imageUrl});
+app.get('/', (req, res, next) => {
+    co(function* () {
+        const me = yield getSessionUser(req);
+        const rawPosts = yield db.query('SELECT `id`, `user_id`, `body`, `created_at`, `mime` FROM `posts` ORDER BY `created_at` DESC LIMIT 10');
+        const posts = yield makePosts(posts.slice(0, POSTS_PER_PAGE * 2));
+        res.render('index.ejs', {
+            posts: filterPosts(posts),
+            me: me,
+            imageUrl: imageUrl
+        });
+    })
+    .then(() => next(), error => {
+        console.log(error);
+        res.status(500).send(error);
     });
-  }).catch((error) => {
-    console.log(error);
-    res.status(500).send(error);
-  });
 });
 
 app.get('/@:accountName/', (req, res, next) => {
