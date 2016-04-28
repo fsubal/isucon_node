@@ -333,9 +333,9 @@ app.get('/@:accountName/', (req, res, next) => {
 
         global.console.timeEnd('getAccountName');
 
-        const posts = makePosts(yield db.query('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC', user.id));
+        const posts = yield makePosts(yield db.query('SELECT `id`, `user_id`, `body`, `mime`, `created_at` FROM `posts` WHERE `user_id` = ? ORDER BY `created_at` DESC', user.id));
 
-        const context = {user, post};
+        const context = {user, posts};
         const commentCount = yield db.query('SELECT COUNT(*) AS count FROM `comments` WHERE `user_id` = ?', context.user.id);
         context.commentCount = commentCount[0] ? commentCount[0].count : 0;
         const postIdRows = yield db.query('SELECT `id` FROM `posts` WHERE `user_id` = ?', context.user.id);
