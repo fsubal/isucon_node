@@ -158,18 +158,17 @@ function imageUrl(post) {
 }
 
 function makeComment(comment) {
-  return new Promise((resolve, reject) => {
-    getUser(comment.user_id).then((user) => {
-      comment.user = user;
-      resolve(comment);
-    }).catch(reject);
-  });
+    return co(function* () {
+        comment.user = yield getUser(comment.user_id);
+        return comment;
+    });
 }
 
 function makePost(post, options) {
     // new Promise((resolve, reject) => {
     return co(function* () {
-        post.comment_count = yield db.query('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', [post.id]) || 0;
+        const commentCount = yield db.query('SELECT COUNT(*) AS `count` FROM `comments` WHERE `post_id` = ?', post.id);
+        post.comment_count = commentCount[0].count || 0;
 
         var query = `
             SELECT
@@ -181,7 +180,7 @@ function makePost(post, options) {
             FROM comments
             LEFT JOIN users ON comments.user_id = users.id
             WHERE post_id = 1
-            ORDER BY comments.created_at DESC;
+            ORDER BY comments.created_at DESC
         `;
 
         if (!options.allComments) {
@@ -190,12 +189,14 @@ function makePost(post, options) {
 
         post.comments = (yield db.query(query, [post.id])).map(comment => {
             comment.user = {account_name: comment.account_name};
-        })
+            return comment;
+        });
 
         // const raw_comments = yield db.query(query, [post.id]);
         // post.comments = yield Promise.all(comments.map(comment => makeComment(comment)));
         post.user = yield getUser(post.user_id);
 
+        return post;
     });
 }
 
