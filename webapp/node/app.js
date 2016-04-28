@@ -40,10 +40,9 @@ app.use(session({
   })
 }));
 
-app.use(function (req, res, next) {
-    console.log(req.originalUrl, req.method);
-    next();
-});
+app.use(require("response-time")(function (req, res, time) {
+    console.log("%dms - []%s] %s", time|0, req.originalUrl, req.method);
+}));
 
 app.use(flash());
 
